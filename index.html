@@ -16,7 +16,196 @@
 <div id="fps-graph" style="display:none"><canvas id="fps-canvas"></canvas></div>
   
 <script>
-const lt=document.getElementById("loading-text"),cv=document.getElementById("unity-canvas"),mw=document.getElementById("unity-mobile-warning"),fg=document.getElementById("fps-graph"),fc=document.getElementById("fps-canvas");let lb=0,hd=false,tm_id;const tm='912.81',fh=[],ml=90;fc.width=180;fc.height=50;const ctx=fc.getContext('2d');let lft=performance.now(),fr=0,fps=60,sb;function uf(){const nt=performance.now(),dt=(nt-lft)/1000;lft=nt;fps=dt>0?1/dt:60;fr++;if(fr%3===0){fh.push(fps);if(fh.length>ml)fh.shift();ctx.clearRect(0,0,180,50);for(let i=0;i<fh.length;i++){const f=fh[i],h=Math.min(f/60,1)*35,c=f>50?'#0f0':f>30?'#fa0':'#f33';ctx.fillStyle=c;ctx.fillRect(i*2,50-h,1.8,h);}ctx.fillStyle='#fff';ctx.font='bold 13px monospace';ctx.shadowColor='#000';ctx.shadowBlur=4;ctx.fillText(Math.round(fps)+' FPS',6,16);ctx.shadowBlur=0;}requestAnimationFrame(uf);}function shw(){hd=false;fg.classList.remove('hidden');if(sb)sb.classList.remove('hidden');}function rst(){clearTimeout(tm_id);if(!hd){hd=true;fg.classList.add('hidden');if(sb)sb.classList.add('hidden');}tm_id=setTimeout(shw,5000);}document.addEventListener('keydown',rst);if(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)){const m=document.createElement('meta');m.name='viewport';m.content='width=device-width,height=device-height,initial-scale=1,user-scalable=no,shrink-to-fit=yes';document.head.appendChild(m);mw.style.display="block";setTimeout(()=>mw.style.display="none",5000);}async function fwp(u){const r=await fetch(u),rd=r.body.getReader(),ch=[];while(true){const{done,value}=await rd.read();if(done)break;lb+=value.length;ch.push(value);lt.textContent=`${(lb/1048576).toFixed(2)} MB / ${tm} MB`;}return URL.createObjectURL(new Blob(ch));}async function mf(p){const b=await Promise.all(p.map(fwp)),bl=await Promise.all(b.map(u=>fetch(u).then(r=>r.blob())));return URL.createObjectURL(new Blob(bl));}function gp(f,s,e){return Array.from({length:e-s+1},(_,i)=>`${f}.part${s+i}`);}(async()=>{const[du,wu]=await Promise.all([mf(gp("Build/hktruffled.data",1,45)),mf(gp("Build/hktruffled.wasm",1,2))]),sc=document.createElement("script");sc.src="Build/hktruffled.loader.js";sc.onload=()=>{createUnityInstance(cv,{dataUrl:du,frameworkUrl:"Build/hktruffled.framework.js",codeUrl:wu,streamingAssetsUrl:"StreamingAssets",companyName:"Team Cherry",productName:"Hollow Knight",productVersion:"1.0"}).then(()=>{lt.remove();asb();fg.style.display='block';uf();}).catch(alert);};document.body.appendChild(sc);})();function asb(){sb=document.createElement('button');sb.className='savebtn';sb.textContent='download';sb.onclick=sdl;document.body.appendChild(sb);}function odb(n){return new Promise((ok,bd)=>{const r=indexedDB.open(n);r.onsuccess=()=>ok(r.result);r.onerror=()=>bd(r.error);});}function ga(d,s){return new Promise((ok,bd)=>{const t=d.transaction([s],'readonly'),st=t.objectStore(s),r=st.getAll();r.onsuccess=()=>ok(r.result);r.onerror=()=>bd(r.error);});}async function sdl(){try{const dbs=await indexedDB.databases();let sv={},fd=false;for(const inf of dbs){const db=await odb(inf.name);for(const st of db.objectStoreNames){try{const dt=await ga(db,st);if(dt&&dt.length>0){const fx=dt.map(it=>{if(it.contents&&it.contents instanceof Uint8Array){return{...it,contents:Array.from(it.contents)};}return it;});sv[`${inf.name}/${st}`]=fx;fd=true;}}catch(e){}}db.close();}if(!fd){alert('No save found');return;}const js=JSON.stringify(sv),bl=new Blob([js],{type:'application/octet-stream'}),u=URL.createObjectURL(bl),a=document.createElement('a');a.href=u;a.download='hk_save.dat';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);}catch(e){alert('Download failed: '+e.message);}}
+  const lt = document.getElementById("loading-text"),
+    cv = document.getElementById("unity-canvas"),
+    mw = document.getElementById("unity-mobile-warning"),
+    fg = document.getElementById("fps-graph"),
+    fc = document.getElementById("fps-canvas");
+let lb = 0,
+    hd = false,
+    tm_id;
+const tm = '912.81',
+    fh = [],
+    ml = 90;
+fc.width = 180;
+fc.height = 50;
+const ctx = fc.getContext('2d');
+let lft = performance.now(),
+    fr = 0,
+    fps = 60,
+    sb;
+
+function uf() {
+    const nt = performance.now(),
+        dt = (nt - lft) / 1000;
+    lft = nt;
+    fps = dt > 0 ? 1 / dt : 60;
+    fr++;
+    if (fr % 3 === 0) {
+        fh.push(fps);
+        if (fh.length > ml) fh.shift();
+        ctx.clearRect(0, 0, 180, 50);
+        for (let i = 0; i < fh.length; i++) {
+            const f = fh[i],
+                h = Math.min(f / 60, 1) * 35,
+                c = f > 50 ? '#0f0' : f > 30 ? '#fa0' : '#f33';
+            ctx.fillStyle = c;
+            ctx.fillRect(i * 2, 50 - h, 1.8, h);
+        }
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 13px monospace';
+        ctx.shadowColor = '#000';
+        ctx.shadowBlur = 4;
+        ctx.fillText(Math.round(fps) + ' FPS', 6, 16);
+        ctx.shadowBlur = 0;
+    }
+    requestAnimationFrame(uf);
+}
+
+function shw() {
+    hd = false;
+    fg.classList.remove('hidden');
+    if (sb) sb.classList.remove('hidden');
+}
+
+function rst() {
+    clearTimeout(tm_id);
+    if (!hd) {
+        hd = true;
+        fg.classList.add('hidden');
+        if (sb) sb.classList.add('hidden');
+    }
+    tm_id = setTimeout(shw, 5000);
+}
+document.addEventListener('keydown', rst);
+if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+    const m = document.createElement('meta');
+    m.name = 'viewport';
+    m.content = 'width=device-width,height=device-height,initial-scale=1,user-scalable=no,shrink-to-fit=yes';
+    document.head.appendChild(m);
+    mw.style.display = "block";
+    setTimeout(() => mw.style.display = "none", 5000);
+}
+async function fwp(u) {
+    const r = await fetch(u),
+        rd = r.body.getReader(),
+        ch = [];
+    while (true) {
+        const {
+            done,
+            value
+        } = await rd.read();
+        if (done) break;
+        lb += value.length;
+        ch.push(value);
+        lt.textContent = `${(lb/1048576).toFixed(2)} MB / ${tm} MB`;
+    }
+    return URL.createObjectURL(new Blob(ch));
+}
+async function mf(p) {
+    const b = await Promise.all(p.map(fwp)),
+        bl = await Promise.all(b.map(u => fetch(u).then(r => r.blob())));
+    return URL.createObjectURL(new Blob(bl));
+}
+
+function gp(f, s, e) {
+    return Array.from({
+        length: e - s + 1
+    }, (_, i) => `${f}.part${s+i}`);
+}(async () => {
+    const [du, wu] = await Promise.all([mf(gp("Build/hktruffled.data", 1, 45)), mf(gp("Build/hktruffled.wasm", 1, 2))]), sc = document.createElement("script");
+    sc.src = "Build/hktruffled.loader.js";
+    sc.onload = () => {
+        createUnityInstance(cv, {
+            dataUrl: du,
+            frameworkUrl: "Build/hktruffled.framework.js",
+            codeUrl: wu,
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "Team Cherry",
+            productName: "Hollow Knight",
+            productVersion: "1.0"
+        }).then(() => {
+            lt.remove();
+            asb();
+            fg.style.display = 'block';
+            uf();
+        }).catch(alert);
+    };
+    document.body.appendChild(sc);
+})();
+
+function asb() {
+    sb = document.createElement('button');
+    sb.className = 'savebtn';
+    sb.textContent = 'download';
+    sb.onclick = sdl;
+    document.body.appendChild(sb);
+}
+
+function odb(n) {
+    return new Promise((ok, bd) => {
+        const r = indexedDB.open(n);
+        r.onsuccess = () => ok(r.result);
+        r.onerror = () => bd(r.error);
+    });
+}
+
+function ga(d, s) {
+    return new Promise((ok, bd) => {
+        const t = d.transaction([s], 'readonly'),
+            st = t.objectStore(s),
+            r = st.getAll();
+        r.onsuccess = () => ok(r.result);
+        r.onerror = () => bd(r.error);
+    });
+}
+async function sdl() {
+    try {
+        const dbs = await indexedDB.databases();
+        let sv = {},
+            fd = false;
+        for (const inf of dbs) {
+            const db = await odb(inf.name);
+            for (const st of db.objectStoreNames) {
+                try {
+                    const dt = await ga(db, st);
+                    if (dt && dt.length > 0) {
+                        const fx = dt.map(it => {
+                            if (it.contents && it.contents instanceof Uint8Array) {
+                                return {
+                                    ...it,
+                                    contents: Array.from(it.contents)
+                                };
+                            }
+                            return it;
+                        });
+                        sv[`${inf.name}/${st}`] = fx;
+                        fd = true;
+                    }
+                } catch (e) {}
+            }
+            db.close();
+        }
+        if (!fd) {
+            alert('No save found');
+            return;
+        }
+        const js = JSON.stringify(sv),
+            bl = new Blob([js], {
+                type: 'application/octet-stream'
+            }),
+            u = URL.createObjectURL(bl),
+            a = document.createElement('a');
+        a.href = u;
+        a.download = 'hk_save.dat';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(u);
+    } catch (e) {
+        alert('Download failed: ' + e.message);
+    }
+}
 </script>
 </body>
 </html>
