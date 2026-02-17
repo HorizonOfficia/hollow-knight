@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <base href="https://cdn.jsdelivr.net/gh/HorizonOfficia/hollow-knight@latest/">
+  <meta charset="utf-8">
+  <title>Hollow Knight</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#000;overflow:hidden}
+    #loading-text{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font:24px Arial}
+    #unity-canvas{width:100vw;height:100vh;display:block}
+    #unity-mobile-warning{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;background:rgba(0,0,0,.9);padding:20px;border-radius:8px;font:14px Arial}
+    #fps-graph{position:fixed;top:12px;left:12px;width:200px;height:70px;background:rgba(0,0,0,.8);border-radius:6px;padding:10px;z-index:9999;transition:.3s}
+    #fps-canvas{width:100%;height:100%;display:block}
+    .savebtn{position:fixed;top:12px;right:12px;padding:10px 18px;cursor:pointer;background:rgba(50,50,50,.85);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;font:14px Arial;z-index:9999;transition:.3s}
+    .savebtn:hover{background:rgba(70,70,70,.95)}
+    .hidden{opacity:0;pointer-events:none}
+  </style>
+</head>
+<body>
+	<link rel="preload" href="sharedassets8.resource" as="fetch">
+	<link rel="preload" href="sharedassets127.resource" as="fetch">
+	<link rel="preload" href="sharedassets400.resource" as="fetch">
+	<link rel="preload" href="sharedassets410.resource" as="fetch">
+  <div id="loading-text">truffed.lol</div>
+  <div id="unity-mobile-warning">WebGL not supported on mobile</div>
+  <canvas id="unity-canvas"></canvas>
+  <div id="fps-graph" style="display:none"><canvas id="fps-canvas"></canvas></div>
+  <script>
+    const lt=document.getElementById("loading-text"),
+          cv=document.getElementById("unity-canvas"),
+          mw=document.getElementById("unity-mobile-warning"),
+          fg=document.getElementById("fps-graph"),
+          fc=document.getElementById("fps-canvas");
+
+    let lb=0,hd=false,tm_id;
+    const tm='912.81',fh=[],ml=90;
+    fc.width=180;fc.height=50;
+    const ctx=fc.getContext('2d');
+    let lft=performance.now(),fr=0,fps=60,sb;
+
+    // -------- Resolution scaling (balanced: 75% internal res) --------
+    function applyResolutionScale(scale) {
+      const canvas = cv;
+      const resize = () => {
+        canvas.width  = Math.floor(window.innerWidth  * scale);
+        canvas.height = Math.floor(window.innerHeight * scale);
+        canvas.style.width  = "100vw";
+        canvas.style.height = "100vh";
+      };
+      window.addEventListener("resize", resize);
+      resize();
+    }
+
+    // -------- FPS graph update --------
+    function uf(){
+      const nt=performance.now(),dt=(nt-lft)/1000;
+      lft=nt;
+      fps=dt>0?1/dt:60;
+      fr++;
+      if(fr%3===0){
+        fh.push(fps);
+        if(fh.length>ml)fh.shift();
+        ctx.clearRect(0,0,180,50);
+        for(let i=0;i<fh.length;i++){
+          const f=fh[i],
+                h=Math.min(f/60,1)*35,
+                c=f>50?'#0f0':f>30?'#fa0':'#f33';
+          ctx.fillStyle=c;
+          ctx.fillRect(i*2,50-h,1.8,h);
+        }
+        ctx.fillStyle='#fff';
+        ctx.font='bold 13px monospace';
+        ctx.shadowColor='#000';
+        ctx.shadowBlur=4;
+        ctx.fillText(Math.round(fps)+' FPS',6,16);
+        ctx.shadowBlur=0;
+      }
+      requestAnimationFrame(uf);
+    }
+
+    function shw(){
+      hd=false;
+      fg.classList.remove('hidden');
+      if(sb)sb.classList.remove('hidden');
+    }
+    function rst(){
+      clearTimeout(tm_id);
+      if(!hd){
+        hd=true;
+        fg.classList.add('hidden');
+        if(sb)sb.classList.add('hidden');
+      }
+      tm_id=setTimeout(shw,5000);
+    }
+    document.addEventListener('keydown',rst);
+
+    // -------- Mobile warning --------
+    if(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)){
+      const m=document.createElement('meta');
+      m.name='viewport';
+      m.content='width=device-width,height=device-height,initial-scale=1,user-scalable=no,shrink-to-fit=yes';
+      document.head.appendChild(m);
+      mw.style.display="block";
+      setTimeout(()=>mw.style.display="none",5000);
+    }
+
+    // -------- Chunked fetch & merge --------
+    async function fwp(u){
+      const r=await fetch(u),
+            rd=r.body.getReader(),
+            ch=[];
+      while(true){
+        const{done,value}=await rd.read();
+        if(done)break;
+        lb+=value.length;
+        ch.push(value);
+        lt.textContent=`${(lb/1048576).toFixed(2)} MB / ${tm} MB`;
+      }
+      return URL.createObjectURL(new Blob(ch));
+    }
+    async function mf(p){
+      const b=await Promise.all(p.map(fwp)),
+            bl=await Promise.all(b.map(u=>fetch(u).then(r=>r.blob())));
+      return URL.createObjectURL(new Blob(bl));
+    }
+    function gp(f,s,e){
+      return Array.from({length:e-s+1},(_,i)=>`${f}.part${s+i}`);
+    }
+
+    // -------- Unity bootstrapping with performance tweaks --------
+    (async()=>{
+      const [du,wu]=await Promise.all([
+        mf(gp("Build/hktruffled.data",1,45)),
+        mf(gp("Build/hktruffled.wasm",1,2))
+      ]);
+
+      const sc=document.createElement("script");
+      sc.src="Build/hktruffled.loader.js";
+      sc.onload=()=>{
+        // Main Unity config with optimizations
+        const config = {
+          dataUrl: du,
+          frameworkUrl: "Build/hktruffled.framework.js",
+          codeUrl: wu,
+          streamingAssetsUrl: "StreamingAssets",
+          companyName: "Team Cherry",
+          productName: "Hollow Knight",
+          productVersion: "1.0",
+
+          // Balanced memory: 384 MB
+          memory: 384 * 1024 * 1024,
+
+          // Prefer WebGL2 for better performance
+          useWebGL2: true,
+
+          // WebGL context attributes: no AA, no preserveDrawingBuffer
+          webglContextAttributes: {
+            antialias: false,
+            alpha: false,
+            depth: true,
+            stencil: false,
+            premultipliedAlpha: false,
+            preserveDrawingBuffer: false,
+            desynchronized: true
+          }
+        };
+
+        createUnityInstance(cv, config).then(()=>{
+          lt.remove();
+          asb();
+		  asib();
+          fg.style.display='block';
+          uf();
+        }).catch(alert);
+      };
+      document.body.appendChild(sc);
+    })();
+//saving
+function asb() {
+  sb = document.createElement("button");
+  sb.className = "savebtn";
+  sb.textContent = "Download Save";
+  sb.onclick = savedownload;
+  document.body.appendChild(sb);
+}
+
+//export
+function savedownload() {
+  const openReq = indexedDB.open("/idbfs");
+
+  openReq.onsuccess = e => {
+    const db = e.target.result;
+    const tx = db.transaction("FILE_DATA", "readonly");
+    const store = tx.objectStore("FILE_DATA");
+
+    const req = store.getAll();
+    const keysReq = store.getAllKeys();
+
+    req.onsuccess = () => {
+      keysReq.onsuccess = () => {
+        const values = req.result;
+        const keys = keysReq.result;
+
+        const exportData = keys.map((key, i) => {
+          const entry = values[i];
+          let contents = entry.contents;
+
+          // Convert Int8Array → plain object
+          if (contents instanceof Int8Array) {
+            const obj = {};
+            for (let j = 0; j < contents.length; j++) {
+              obj[j] = contents[j];
+            }
+            contents = obj;
+          }
+
+          return {
+            key: key,
+            value: {
+              timestamp: entry.timestamp,
+              mode: entry.mode,
+              contents: contents
+            }
+          };
+        });
+
+        const blob = new Blob(
+          [JSON.stringify(exportData, null, 2)],
+          { type: "application/json" }
+        );
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "hk-save.json";
+        a.click();
+        URL.revokeObjectURL(url);
+
+        console.log("✔️ Export complete");
+      };
+    };
+  };
+}
+//import
+function asib() {
+  const btn = document.createElement("button");
+  btn.className = "savebtn";
+  btn.style.right = "140px"; // shift left so it doesn't overlap Download
+  btn.textContent = "Import Save";
+  btn.onclick = () => input.click(); // open file picker
+  document.body.appendChild(btn);
+}
+const input = document.createElement("input");
+input.type = "file";
+input.accept = ".json,.txt,.dat,application/json";
+input.style.display = "none";
+document.body.appendChild(input);
+input.onchange = () => {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    let entries;
+    try {
+      entries = JSON.parse(reader.result);
+    } catch (err) {
+      console.error("❌ Invalid JSON file", err);
+      return;
+    }
+
+    const req = indexedDB.open("/idbfs");
+    req.onsuccess = e => {
+      const db = e.target.result;
+      const tx = db.transaction("FILE_DATA", "readwrite");
+      const store = tx.objectStore("FILE_DATA");
+
+      // Step 1: detect current hash
+      store.getAllKeys().onsuccess = ev => {
+        const keys = ev.target.result;
+        if (!keys.length) {
+          console.error("❌ No keys found in FILE_DATA");
+          return;
+        }
+
+        const firstKey = keys[0]; // "/idbfs/<hash>"
+        const currentHash = firstKey.split("/")[2];
+        console.log("Detected current hash:", currentHash);
+
+        // Step 2: delete old hash keys
+        keys.forEach(k => {
+          if (!k.includes(currentHash)) {
+            store.delete(k);
+          }
+        });
+
+        // Step 3: import entries using the current hash
+        entries.forEach(entry => {
+          const oldKey = entry.key;
+          const parts = oldKey.split("/");
+          parts[2] = currentHash; // replace hash
+          const newKey = parts.join("/");
+
+          const val = entry.value;
+          let contents = val.contents;
+
+          // Rebuild Int8Array if needed
+          if (contents && typeof contents === "object" && !(contents instanceof Int8Array)) {
+            const idxs = Object.keys(contents).map(Number).sort((a, b) => a - b);
+            const arr = new Int8Array(idxs.length);
+            idxs.forEach(i => arr[i] = contents[i]);
+            contents = arr;
+          }
+
+          store.put(
+            {
+              timestamp: new Date(val.timestamp),
+              mode: val.mode,
+              contents: contents
+            },
+            newKey
+          );
+        });
+
+        tx.oncomplete = () => console.log("✔️ Import complete — refresh the page");
+        tx.onerror = err => console.error("❌ Transaction error:", err);
+      };
+    };
+
+    req.onerror = err => console.error("❌ DB open failed:", err);
+  };
+
+  reader.readAsText(file);
+};
+
+
+  </script>
+</body>
+</html>
